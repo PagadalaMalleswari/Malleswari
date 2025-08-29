@@ -1,0 +1,96 @@
+module clock_timer_stopwatch(
+    fs_seg_out,
+    fs_load_input1,
+    fs_load_input2,
+    fs_load_input3,
+    fs_CLK100MHZ,
+    fs_reset,
+    fs_an,
+    fs_led_out,
+    fs_am_pm,
+    fs_clock,
+    fs_timer,
+    fs_stopwatch
+);
+
+     input fs_CLK100MHZ, fs_reset ,fs_clock, fs_timer, fs_stopwatch;
+    input [5:0] fs_load_input1, fs_load_input2;
+    input [3:0] fs_load_input3;
+    output  [6:0] fs_seg_out;
+    output [3:0] fs_an;
+    output  [11:0] fs_led_out;
+    output  fs_am_pm;
+
+    reg [1:0] mode; // 2-bit mode: 00=Clock, 01=Timer, 10=Stopwatch
+
+    // Control flags for functionality
+    always @(posedge fs_CLK100MHZ or posedge fs_reset) begin
+        if (fs_reset) begin
+            mode <= 2'b00; // Default to clock
+        end else begin
+            case ({fs_stopwatch, fs_timer, fs_clock})
+                3'b001: mode <= 2'b00; // Clock mode
+                3'b010: mode <= 2'b01; // Timer mode
+                3'b100: mode <= 2'b10; // Stopwatch mode
+                default: mode <= mode; // Retain last mode if multiple are selected
+            endcase
+        end
+    end
+
+    // Instantiate modules based on mode
+    wire [6:0] clock_seg, timer_seg, stopwatch_seg;
+    wire [3:0] clock_an, timer_an, stopwatch_an;
+    wire [11:0] clock_led, timer_led, stopwatch_led;
+    wire clock_am_pm;
+
+    // Clock Module
+     clock clock_inst(
+    .seg_out(clock_seg),
+    .am_pm(clock_am_pm),
+    .led_out(clock_led),
+    .load_input1(fs_load_input1),
+    .load_input2(fs_load_input2),
+    .load_input3(fs_load_input3),
+    .CLK100MHZ(fs_CLK100MHZ),
+    .reset(fs_reset),
+    .an(clock_an));
+    // Timer Module
+   timer timer_inst (
+    .f_seg_out(timer_seg),
+    .f_load_input1(fs_load_input1),
+    .f_load_input2(fs_load_input2)  ,  .f_load_input3(fs_load_input3),
+    .f_CLK100MHZ(fs_CLK100MHZ),
+    .f_reset(fs_reset),
+    .f_an(timer_an),
+    .f_led_out(timer_led));
+
+    // Stopwatch Module
+   stopwatch stopwatch_instS (
+    .start(fs_load_input1[0]),
+    .stop(fs_load_input1[1]),
+    .clk(fs_CLK100MHZ),
+    .seg_out(stopwatch_seg),
+    .an(stopwatch_an),
+    .led_out(stopwatch_led));
+
+    // Output logic
+    assign fs_seg_out = (mode == 2'b00) ? clock_seg :
+                       (mode == 2'b01) ? timer_seg :
+                        stopwatch_seg   ;
+
+    assign fs_an = (mode == 2'b00) ? clock_an :
+                  (mode == 2'b01) ? timer_an :
+                  stopwatch_an;
+                  
+
+    assign fs_led_out = (mode == 2'b00) ? clock_led :
+                       (mode == 2'b01) ? timer_led :
+                       stopwatch_led;
+                        
+
+    assign fs_am_pm = (mode == 2'b00) ? clock_am_pm : 1'b0;
+
+endmodule
+
+
+
